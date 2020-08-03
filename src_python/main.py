@@ -5,7 +5,7 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/....."
-__date__ = "29-07-2020"
+__date__ = "03-08-2020"
 __version__ = "1.0"
 # pylint: disable=bare-except, broad-except
 
@@ -22,10 +22,9 @@ from PyQt5.QtCore import QDateTime
 import pyqtgraph as pg
 
 from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
+from dvg_pyqtgraph_threadsafe import HistoryChartCurve
 from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO
-
-from dvg_pyqtgraph_threadsafe import ThreadSafeGraphicsWindow
 
 from DvG_pyqt_FileLogger import FileLogger
 from DvG_pyqt_controls import create_Toggle_button, SS_GROUP
@@ -49,7 +48,7 @@ pg.setConfigOption("foreground", "#EEE")
 # fmt: off
 DAQ_INTERVAL_MS    = 1000  # [ms]
 CHART_INTERVAL_MS  = 500   # [ms]
-CHART_HISTORY_TIME = 60    # [s]
+CHART_HISTORY_TIME = 600    # [s]
 # fmt: on
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
@@ -151,61 +150,55 @@ class MainWindow(QtWid.QWidget):
         # -------------------------
 
         # Chart
-        num_samples = round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS)
+        self.gw = pg.GraphicsLayoutWidget()
 
+        # Plot: Temperatures
+        p = {"color": "#CCC", "font-size": "10pt"}
+        self.pi_temp = self.gw.addPlot(row=0, col=0)
+        self.pi_temp.setLabel("left", text="temperature ('C)", **p)
+
+        # Plot: Humidity
+        self.pi_humi = self.gw.addPlot(row=1, col=0)
+        self.pi_humi.setLabel("left", text="humidity (%)", **p)
+
+        # Plot: Pressure
+        self.pi_pres = self.gw.addPlot(row=2, col=0)
+        self.pi_pres.setLabel("left", text="pressure (bar)", **p)
+
+        self.plots = [self.pi_temp, self.pi_humi, self.pi_pres]
+        for plot in self.plots:
+            plot.showGrid(x=1, y=1)
+            plot.setLabel("bottom", text="history (s)", **p)
+            plot.setMenuEnabled(True)
+            plot.enableAutoRange(axis=pg.ViewBox.XAxis, enable=False)
+            plot.enableAutoRange(axis=pg.ViewBox.YAxis, enable=True)
+            plot.setAutoVisible(y=True)
+            plot.setRange(xRange=[-CHART_HISTORY_TIME, 0])
+
+        # Curves
+        capacity = round(CHART_HISTORY_TIME * 1e3 / DAQ_INTERVAL_MS)
         PEN_01 = pg.mkPen(color=[255, 255, 0], width=3)
         PEN_02 = pg.mkPen(color=[0, 255, 255], width=3)
 
-        self.tsgwin = ThreadSafeGraphicsWindow()
-        self.tsgwin.setBackground([20, 20, 20])
-
-        # Plot: Temperatures
-        p = {"color": "#EEE", "font-size": "10pt"}
-        self.tsplot_temp = self.tsgwin.addThreadSafePlot(row=0, col=0)
-        self.tsplot_temp.showGrid(x=1, y=1)
-        self.tsplot_temp.setLabel("bottom", text="history (s)", **p)
-        self.tsplot_temp.setLabel("left", text="temperature ('C)", **p)
-        self.tsplot_temp.setRange(
-            xRange=[-1.04 * CHART_HISTORY_TIME, CHART_HISTORY_TIME * 0.04],
-            yRange=[18, 30],
-            disableAutoRange=True,
+        self.tscurve_ds_temp = HistoryChartCurve(
+            capacity=capacity, linked_curve=self.pi_temp.plot(pen=PEN_01),
         )
-        self.tscurve_ds_temp = self.tsgwin.addThreadSafeCurve(
-            "HistoryChartCurve", capacity=num_samples, pen=PEN_01,
+        self.tscurve_bme_temp = HistoryChartCurve(
+            capacity=capacity, linked_curve=self.pi_temp.plot(pen=PEN_02),
         )
-        self.tscurve_bme_temp = self.tsgwin.addThreadSafeCurve(
-            "HistoryChartCurve", capacity=num_samples, pen=PEN_02,
+        self.tscurve_bme_humi = HistoryChartCurve(
+            capacity=capacity, linked_curve=self.pi_humi.plot(pen=PEN_02),
+        )
+        self.tscurve_bme_pres = HistoryChartCurve(
+            capacity=capacity, linked_curve=self.pi_pres.plot(pen=PEN_02),
         )
 
-        # Plot: Humidity
-        p = {"color": "#EEE", "font-size": "10pt"}
-        self.tsplot_humi = self.tsgwin.addThreadSafePlot(row=1, col=0)
-        self.tsplot_humi.showGrid(x=1, y=1)
-        self.tsplot_humi.setLabel("bottom", text="history (s)", **p)
-        self.tsplot_humi.setLabel("left", text="humidity (%)", **p)
-        self.tsplot_humi.setRange(
-            xRange=[-1.04 * CHART_HISTORY_TIME, CHART_HISTORY_TIME * 0.04],
-            yRange=[0, 100],
-            disableAutoRange=True,
-        )
-        self.tscurve_bme_humi = self.tsgwin.addThreadSafeCurve(
-            "HistoryChartCurve", capacity=num_samples, pen=PEN_02,
-        )
-
-        # Plot: Pressure
-        p = {"color": "#EEE", "font-size": "10pt"}
-        self.tsplot_pres = self.tsgwin.addThreadSafePlot(row=2, col=0)
-        self.tsplot_pres.showGrid(x=1, y=1)
-        self.tsplot_pres.setLabel("bottom", text="history (s)", **p)
-        self.tsplot_pres.setLabel("left", text="pressure (bar)", **p)
-        self.tsplot_pres.setRange(
-            xRange=[-1.04 * CHART_HISTORY_TIME, CHART_HISTORY_TIME * 0.04],
-            yRange=[0.9, 1.2],
-            disableAutoRange=True,
-        )
-        self.tscurve_bme_pres = self.tsgwin.addThreadSafeCurve(
-            "HistoryChartCurve", capacity=num_samples, pen=PEN_02,
-        )
+        self.tscurves = [
+            self.tscurve_ds_temp,
+            self.tscurve_bme_temp,
+            self.tscurve_bme_humi,
+            self.tscurve_bme_pres,
+        ]
 
         # 'Readings'
         p = {
@@ -213,7 +206,6 @@ class MainWindow(QtWid.QWidget):
             "alignment": QtCore.Qt.AlignRight,
             "maximumWidth": 50,
         }
-        self.qlin_reading_time = QtWid.QLineEdit(**p)
         self.qlin_reading_ds_temp = QtWid.QLineEdit(**p)
         self.qlin_reading_bme_temp = QtWid.QLineEdit(**p)
         self.qlin_reading_bme_humi = QtWid.QLineEdit(**p)
@@ -221,21 +213,18 @@ class MainWindow(QtWid.QWidget):
 
         # fmt: off
         grid = QtWid.QGridLayout()
-        grid.addWidget(QtWid.QLabel("time")      , 0, 0)
-        grid.addWidget(self.qlin_reading_time    , 0, 1)
-        grid.addWidget(QtWid.QLabel("s")         , 0, 2)
-        grid.addWidget(QtWid.QLabel("DS temp")   , 1, 0)
-        grid.addWidget(self.qlin_reading_ds_temp , 1, 1)
+        grid.addWidget(QtWid.QLabel("DS temp")   , 0, 0)
+        grid.addWidget(self.qlin_reading_ds_temp , 0, 1)
+        grid.addWidget(QtWid.QLabel("'C")        , 0, 2)
+        grid.addWidget(QtWid.QLabel("BME temp")  , 1, 0)
+        grid.addWidget(self.qlin_reading_bme_temp, 1, 1)
         grid.addWidget(QtWid.QLabel("'C")        , 1, 2)
-        grid.addWidget(QtWid.QLabel("BME temp")  , 2, 0)
-        grid.addWidget(self.qlin_reading_bme_temp, 2, 1)
-        grid.addWidget(QtWid.QLabel("'C")        , 2, 2)
-        grid.addWidget(QtWid.QLabel("BME humi")  , 3, 0)
-        grid.addWidget(self.qlin_reading_bme_humi, 3, 1)
-        grid.addWidget(QtWid.QLabel("%")         , 3, 2)
-        grid.addWidget(QtWid.QLabel("BME pres")  , 4, 0)
-        grid.addWidget(self.qlin_reading_bme_pres, 4, 1)
-        grid.addWidget(QtWid.QLabel("bar")       , 4, 2)
+        grid.addWidget(QtWid.QLabel("BME humi")  , 2, 0)
+        grid.addWidget(self.qlin_reading_bme_humi, 2, 1)
+        grid.addWidget(QtWid.QLabel("%")         , 2, 2)
+        grid.addWidget(QtWid.QLabel("BME pres")  , 3, 0)
+        grid.addWidget(self.qlin_reading_bme_pres, 3, 1)
+        grid.addWidget(QtWid.QLabel("bar")       , 3, 2)
         grid.setAlignment(QtCore.Qt.AlignTop)
         # fmt: on
 
@@ -262,7 +251,7 @@ class MainWindow(QtWid.QWidget):
 
         # Round up bottom frame
         hbox_bot = QtWid.QHBoxLayout()
-        hbox_bot.addWidget(self.tsgwin, 1)
+        hbox_bot.addWidget(self.gw, 1)
         hbox_bot.addLayout(vbox, 0)
 
         # -------------------------
@@ -290,7 +279,8 @@ class MainWindow(QtWid.QWidget):
         )
 
         if reply == QtWid.QMessageBox.Yes:
-            self.tsgwin.clear_curves()
+            for tscurve in self.tscurves:
+                tscurve.clear()
 
     @QtCore.pyqtSlot()
     def process_qpbt_record(self):
@@ -303,37 +293,29 @@ class MainWindow(QtWid.QWidget):
     def set_text_qpbt_record(self, text_str):
         self.qpbt_record.setText(text_str)
 
+    @QtCore.pyqtSlot()
+    def update_GUI(self):
+        str_cur_date, str_cur_time, _ = get_current_date_time()
+        self.qlbl_cur_date_time.setText(
+            "%s    %s" % (str_cur_date, str_cur_time)
+        )
+        self.qlbl_update_counter.setText("%i" % qdev_ard.update_counter_DAQ)
+        self.qlbl_DAQ_rate.setText(
+            "DAQ: %.1f Hz" % qdev_ard.obtained_DAQ_rate_Hz
+        )
 
-# ------------------------------------------------------------------------------
-#   update_GUI
-# ------------------------------------------------------------------------------
+        self.qlin_reading_ds_temp.setText("%.1f" % state.ds_temp)
+        self.qlin_reading_bme_temp.setText("%.1f" % state.bme_temp)
+        self.qlin_reading_bme_humi.setText("%.1f" % state.bme_humi)
+        self.qlin_reading_bme_pres.setText("%.3f" % state.bme_pres)
 
+    @QtCore.pyqtSlot()
+    def update_chart(self):
+        if DEBUG:
+            tprint("update_chart")
 
-@QtCore.pyqtSlot()
-def update_GUI():
-    str_cur_date, str_cur_time, _ = get_current_date_time()
-    window.qlbl_cur_date_time.setText("%s    %s" % (str_cur_date, str_cur_time))
-    window.qlbl_update_counter.setText("%i" % qdev_ard.update_counter_DAQ)
-    window.qlbl_DAQ_rate.setText("DAQ: %.1f Hz" % qdev_ard.obtained_DAQ_rate_Hz)
-
-    window.qlin_reading_time.setText("%.1f" % state.time)
-    window.qlin_reading_ds_temp.setText("%.1f" % state.ds_temp)
-    window.qlin_reading_bme_temp.setText("%.1f" % state.bme_temp)
-    window.qlin_reading_bme_humi.setText("%.1f" % state.bme_humi)
-    window.qlin_reading_bme_pres.setText("%.3f" % state.bme_pres)
-
-
-# ------------------------------------------------------------------------------
-#   update_chart
-# ------------------------------------------------------------------------------
-
-
-@QtCore.pyqtSlot()
-def update_chart():
-    if DEBUG:
-        tprint("update_curve")
-
-    window.tsgwin.update_curves()
+        for tscurve in self.tscurves:
+            tscurve.update()
 
 
 # ------------------------------------------------------------------------------
@@ -420,10 +402,10 @@ def DAQ_function():
         state.time = time.perf_counter()
 
     # Add readings to chart histories
-    window.tscurve_ds_temp.add_new_reading(state.time, state.ds_temp)
-    window.tscurve_bme_temp.add_new_reading(state.time, state.bme_temp)
-    window.tscurve_bme_humi.add_new_reading(state.time, state.bme_humi)
-    window.tscurve_bme_pres.add_new_reading(state.time, state.bme_pres)
+    window.tscurve_ds_temp.appendData(state.time, state.ds_temp)
+    window.tscurve_bme_temp.appendData(state.time, state.bme_temp)
+    window.tscurve_bme_humi.appendData(state.time, state.bme_humi)
+    window.tscurve_bme_pres.appendData(state.time, state.bme_pres)
 
     # Logging to file
     if file_logger.starting:
@@ -449,7 +431,7 @@ def DAQ_function():
     if file_logger.is_recording:
         log_elapsed_time = state.time - file_logger.start_time
         file_logger.write(
-            "%.1f\t%.3f\t%.3f\t%.3f\t%.5f\n"
+            "%.1f\t%.1f\t%.1f\t%.1f\t%.3f\n"
             % (
                 log_elapsed_time,
                 state.ds_temp,
@@ -497,7 +479,6 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
     QtCore.QThread.currentThread().setObjectName("MAIN")  # For DEBUG info
 
-    app = 0  # Work-around for kernel crash when using Spyder IDE
     app = QtWid.QApplication(sys.argv)
     app.aboutToQuit.connect(about_to_quit)
 
@@ -528,7 +509,7 @@ if __name__ == "__main__":
     # fmt: on
 
     # Connect signals to slots
-    qdev_ard.signal_DAQ_updated.connect(update_GUI)
+    qdev_ard.signal_DAQ_updated.connect(window.update_GUI)
     qdev_ard.signal_connection_lost.connect(notify_connection_lost)
 
     # Start workers
@@ -540,7 +521,7 @@ if __name__ == "__main__":
 
     timer_chart = QtCore.QTimer()
     # timer_chart.setTimerType(QtCore.Qt.PreciseTimer)
-    timer_chart.timeout.connect(update_chart)
+    timer_chart.timeout.connect(window.update_chart)
     timer_chart.start(CHART_INTERVAL_MS)
 
     # --------------------------------------------------------------------------
