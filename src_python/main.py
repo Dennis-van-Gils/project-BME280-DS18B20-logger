@@ -26,8 +26,9 @@ from dvg_pyqtgraph_threadsafe import HistoryChartCurve
 from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO
 
+from dvg_pyqt_controls import create_Toggle_button, SS_GROUP
+
 from DvG_pyqt_FileLogger import FileLogger
-from DvG_pyqt_controls import create_Toggle_button, SS_GROUP
 
 try:
     import OpenGL.GL as gl  # pylint: disable=unused-import
@@ -119,7 +120,8 @@ class MainWindow(QtWid.QWidget):
         self.qlbl_cur_date_time = QtWid.QLabel("00-00-0000    00:00:00")
         self.qlbl_cur_date_time.setAlignment(QtCore.Qt.AlignCenter)
         self.qpbt_record = create_Toggle_button(
-            "Click to start recording to file", minimumHeight=40,
+            text="Click to start recording to file",
+            minimumSize=QtCore.QSize(300, 40),
         )
         self.qpbt_record.clicked.connect(self.process_qpbt_record)
 
