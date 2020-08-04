@@ -12,45 +12,47 @@
   The RGB LED of the Feather M4 will indicate its status:
   * Blue : We're setting up
   * Green: Running okay
-  Every read out, the LED will alternate in brightness high/low
+  Every read out, the LED will flash brightly in green
 
   Dennis van Gils
   29-07-2020
 *******************************************************************************/
 
 #include <Arduino.h>
-#include "DvG_SerialCommand.h"
-#include "Adafruit_NeoPixel.h"
+#include <DvG_SerialCommand.h>
+#include <Adafruit_NeoPixel.h>
 
 // DS18B20
 #include <OneWire.h>
 #include <DallasTemperature.h>
 
 // BME280
-#include "BME280I2C.h"
-#include "Wire.h"
-#include "SPI.h"
+#include <BME280I2C.h>
+#include <Wire.h>
+#include <SPI.h>
 
 DvG_SerialCommand sc(Serial); // Instantiate serial command listener
-Adafruit_NeoPixel strip(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
+
+Adafruit_NeoPixel neo(1, PIN_NEOPIXEL, NEO_GRB + NEO_KHZ800);
+#define NEO_DIM 3  // Brightness level for dim intensity [0 -255]
+#define NEO_BRIGHT 8 // Brightness level for bright intensity [0 - 255]
 
 #define PIN_DS18B20 5
 OneWire oneWire(PIN_DS18B20);
 DallasTemperature ds18(&oneWire);
 BME280I2C bme;
 
+
 // -----------------------------------------------------------------------------
 //    setup
 // -----------------------------------------------------------------------------
 
 void setup() {
-    strip.begin();
-    strip.setPixelColor(0, strip.Color(0, 0, 15)); // Blue: We're in setup()
-    strip.show();
+    neo.begin();
+    neo.setPixelColor(0, neo.Color(0, 0, NEO_BRIGHT)); // Blue: We're in setup()
+    neo.show();
 
     Serial.begin(9600);
-
-    // DS18B20
     ds18.begin();
 
     // BME280
@@ -60,15 +62,14 @@ void setup() {
         delay(1000);
     }
 
-    strip.setPixelColor(0, strip.Color(0, 15, 0)); // Green: All set up
-    strip.show();
+    neo.setPixelColor(0, neo.Color(0, NEO_DIM, 0)); // Green: All set up
+    neo.show();
 }
 
 // -----------------------------------------------------------------------------
 //    loop
 // -----------------------------------------------------------------------------
 
-bool toggle = false;
 float ds18_temp(NAN);     // ['C]
 float bme280_temp(NAN);   // ['C]
 float bme280_humi(NAN);   // [%]
@@ -84,18 +85,13 @@ void loop() {
     if (sc.available()) {
         strCmd = sc.getCmd();
 
+        neo.setPixelColor(0, neo.Color(0, NEO_BRIGHT, 0)); // Green: Flash
+        neo.show();
+
         if (strcmp(strCmd, "id?") == 0) {
             Serial.println("Arduino, BME280 & DS18B20 logger");
 
         } else {
-            toggle = !toggle;
-            if (toggle) {
-                strip.setPixelColor(0, strip.Color(0, 5, 0));
-            } else {
-                strip.setPixelColor(0, strip.Color(0, 15, 0));
-            }
-            strip.show();
-
             now = millis();
             ds18.requestTemperatures();
             ds18_temp = ds18.getTempCByIndex(0);
@@ -108,5 +104,8 @@ void loop() {
                 '\t' + String(bme280_humi, 1) +
                 '\t' + String(bme280_pres, 0));
         }
+
+        neo.setPixelColor(0, neo.Color(0, NEO_DIM, 0)); // Green: Idle
+        neo.show();
     }
 }
