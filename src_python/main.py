@@ -99,7 +99,7 @@ class MainWindow(QtWid.QWidget):
         super().__init__(parent, **kwargs)
 
         self.setWindowTitle("BME280 & DS18B20 logger")
-        self.setGeometry(350, 50, 800, 800)
+        self.setGeometry(350, 50, 960, 800)
         self.setStyleSheet(SS_TEXTBOX_READ_ONLY + SS_GROUP)
 
         # -------------------------
@@ -159,9 +159,9 @@ class MainWindow(QtWid.QWidget):
         self.gw = pg.GraphicsLayoutWidget()
 
         # Plot: Temperatures
-        p = {"color": "#CCC", "font-size": "10pt"}
+        p = {"color": "#EEE", "font-size": "10pt"}
         self.pi_temp = self.gw.addPlot(row=0, col=0)
-        self.pi_temp.setLabel("left", text="temperature ('C)", **p)
+        self.pi_temp.setLabel("left", text="temperature (°C)", **p)
 
         # Plot: Humidity
         self.pi_humi = self.gw.addPlot(row=1, col=0)
@@ -169,7 +169,7 @@ class MainWindow(QtWid.QWidget):
 
         # Plot: Pressure
         self.pi_pres = self.gw.addPlot(row=2, col=0)
-        self.pi_pres.setLabel("left", text="pressure (bar)", **p)
+        self.pi_pres.setLabel("left", text="pressure (mbar)", **p)
 
         self.plots = [self.pi_temp, self.pi_humi, self.pi_pres]
         for plot in self.plots:
@@ -210,7 +210,7 @@ class MainWindow(QtWid.QWidget):
         p = {
             "readOnly": True,
             "alignment": QtCore.Qt.AlignRight,
-            "maximumWidth": 50,
+            "maximumWidth": 54,
         }
         self.qlin_reading_ds_temp = QtWid.QLineEdit(**p)
         self.qlin_reading_bme_temp = QtWid.QLineEdit(**p)
@@ -221,16 +221,16 @@ class MainWindow(QtWid.QWidget):
         grid = QtWid.QGridLayout()
         grid.addWidget(QtWid.QLabel("DS temp.")  , 0, 0)
         grid.addWidget(self.qlin_reading_ds_temp , 0, 1)
-        grid.addWidget(QtWid.QLabel("'C")        , 0, 2)
+        grid.addWidget(QtWid.QLabel("± 0.5 °C")  , 0, 2)
         grid.addWidget(QtWid.QLabel("BME temp.") , 1, 0)
         grid.addWidget(self.qlin_reading_bme_temp, 1, 1)
-        grid.addWidget(QtWid.QLabel("'C")        , 1, 2)
+        grid.addWidget(QtWid.QLabel("± 0.5 °C")  , 1, 2)
         grid.addWidget(QtWid.QLabel("BME humi.") , 2, 0)
         grid.addWidget(self.qlin_reading_bme_humi, 2, 1)
-        grid.addWidget(QtWid.QLabel("%")         , 2, 2)
+        grid.addWidget(QtWid.QLabel("± 3 %")     , 2, 2)
         grid.addWidget(QtWid.QLabel("BME pres.") , 3, 0)
         grid.addWidget(self.qlin_reading_bme_pres, 3, 1)
-        grid.addWidget(QtWid.QLabel("bar")       , 3, 2)
+        grid.addWidget(QtWid.QLabel("± 1 mbar")  , 3, 2)
         grid.setAlignment(QtCore.Qt.AlignTop)
         # fmt: on
 
@@ -311,7 +311,7 @@ class MainWindow(QtWid.QWidget):
         self.qlin_reading_ds_temp.setText("%.1f" % state.ds_temp)
         self.qlin_reading_bme_temp.setText("%.1f" % state.bme_temp)
         self.qlin_reading_bme_humi.setText("%.1f" % state.bme_humi)
-        self.qlin_reading_bme_pres.setText("%.3f" % state.bme_pres)
+        self.qlin_reading_bme_pres.setText("%.1f" % state.bme_pres)
 
     @QtCore.pyqtSlot()
     def update_chart(self):
@@ -391,7 +391,7 @@ def DAQ_function():
             state.bme_pres,
         ) = tmp_state
         state.time /= 1000
-        state.bme_pres /= 1e5
+        state.bme_pres /= 100  # [Pa] to [mbar]
     except Exception as err:
         pft(err, 3)
         dprint(
@@ -423,7 +423,7 @@ def DAQ_function():
                 "DS18B20 temp ('C)\t"
                 "BME280 temp ('C)\t"
                 "BME280 humi (pct)\t"
-                "BME280 pres (bar)\n"
+                "BME280 pres (mbar)\n"
             )
 
     if file_logger.stopping:
@@ -435,7 +435,7 @@ def DAQ_function():
     if file_logger.is_recording:
         log_elapsed_time = state.time - file_logger.start_time
         file_logger.write(
-            "%.1f\t%.1f\t%.1f\t%.1f\t%.3f\n"
+            "%.1f\t%.1f\t%.1f\t%.1f\t%.1f\n"
             % (
                 log_elapsed_time,
                 state.ds_temp,
