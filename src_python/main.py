@@ -5,7 +5,7 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/....."
-__date__ = "03-08-2020"
+__date__ = "05-08-2020"
 __version__ = "1.0"
 # pylint: disable=bare-except, broad-except
 
@@ -23,10 +23,14 @@ import pyqtgraph as pg
 
 from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
 from dvg_pyqtgraph_threadsafe import HistoryChartCurve
+from dvg_pyqt_controls import (
+    create_Toggle_button,
+    SS_TEXTBOX_READ_ONLY,
+    SS_GROUP,
+)
+
 from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO
-
-from dvg_pyqt_controls import create_Toggle_button, SS_GROUP
 
 from DvG_pyqt_FileLogger import FileLogger
 
@@ -94,8 +98,9 @@ class MainWindow(QtWid.QWidget):
     def __init__(self, parent=None, **kwargs):
         super().__init__(parent, **kwargs)
 
-        self.setWindowTitle("Temperature-humidity-pressure logger")
+        self.setWindowTitle("BME280 & DS18B20 logger")
         self.setGeometry(350, 50, 800, 800)
+        self.setStyleSheet(SS_TEXTBOX_READ_ONLY + SS_GROUP)
 
         # -------------------------
         #   Top frame
@@ -103,8 +108,8 @@ class MainWindow(QtWid.QWidget):
 
         # Left box
         self.qlbl_update_counter = QtWid.QLabel("0")
-        self.qlbl_DAQ_rate = QtWid.QLabel("DAQ: 0 Hz")
-        self.qlbl_DAQ_rate.setMinimumWidth(100)
+        self.qlbl_DAQ_rate = QtWid.QLabel("DAQ: nan Hz")
+        self.qlbl_DAQ_rate.setStyleSheet("QLabel {min-width: 7em}")
 
         vbox_left = QtWid.QVBoxLayout()
         vbox_left.addWidget(self.qlbl_update_counter, stretch=0)
@@ -113,15 +118,14 @@ class MainWindow(QtWid.QWidget):
 
         # Middle box
         self.qlbl_title = QtWid.QLabel(
-            "Uber-Monitor",
+            "BME280 & DS18B20 logger",
             font=QtGui.QFont("Palatino", 14, weight=QtGui.QFont.Bold),
         )
         self.qlbl_title.setAlignment(QtCore.Qt.AlignCenter)
         self.qlbl_cur_date_time = QtWid.QLabel("00-00-0000    00:00:00")
         self.qlbl_cur_date_time.setAlignment(QtCore.Qt.AlignCenter)
         self.qpbt_record = create_Toggle_button(
-            text="Click to start recording to file",
-            minimumSize=QtCore.QSize(300, 40),
+            "Click to start recording to file"
         )
         self.qpbt_record.clicked.connect(self.process_qpbt_record)
 
@@ -215,23 +219,22 @@ class MainWindow(QtWid.QWidget):
 
         # fmt: off
         grid = QtWid.QGridLayout()
-        grid.addWidget(QtWid.QLabel("DS temp")   , 0, 0)
+        grid.addWidget(QtWid.QLabel("DS temp.")  , 0, 0)
         grid.addWidget(self.qlin_reading_ds_temp , 0, 1)
         grid.addWidget(QtWid.QLabel("'C")        , 0, 2)
-        grid.addWidget(QtWid.QLabel("BME temp")  , 1, 0)
+        grid.addWidget(QtWid.QLabel("BME temp.") , 1, 0)
         grid.addWidget(self.qlin_reading_bme_temp, 1, 1)
         grid.addWidget(QtWid.QLabel("'C")        , 1, 2)
-        grid.addWidget(QtWid.QLabel("BME humi")  , 2, 0)
+        grid.addWidget(QtWid.QLabel("BME humi.") , 2, 0)
         grid.addWidget(self.qlin_reading_bme_humi, 2, 1)
         grid.addWidget(QtWid.QLabel("%")         , 2, 2)
-        grid.addWidget(QtWid.QLabel("BME pres")  , 3, 0)
+        grid.addWidget(QtWid.QLabel("BME pres.") , 3, 0)
         grid.addWidget(self.qlin_reading_bme_pres, 3, 1)
         grid.addWidget(QtWid.QLabel("bar")       , 3, 2)
         grid.setAlignment(QtCore.Qt.AlignTop)
         # fmt: on
 
         qgrp_readings = QtWid.QGroupBox("Readings")
-        qgrp_readings.setStyleSheet(SS_GROUP)
         qgrp_readings.setLayout(grid)
 
         # 'Chart'
@@ -243,7 +246,6 @@ class MainWindow(QtWid.QWidget):
         grid.setAlignment(QtCore.Qt.AlignTop)
 
         qgrp_chart = QtWid.QGroupBox("Chart")
-        qgrp_chart.setStyleSheet(SS_GROUP)
         qgrp_chart.setLayout(grid)
 
         vbox = QtWid.QVBoxLayout()
@@ -262,7 +264,7 @@ class MainWindow(QtWid.QWidget):
 
         vbox = QtWid.QVBoxLayout(self)
         vbox.addLayout(hbox_top, stretch=0)
-        vbox.addSpacerItem(QtWid.QSpacerItem(0, 20))
+        vbox.addSpacerItem(QtWid.QSpacerItem(0, 10))
         vbox.addLayout(hbox_bot, stretch=1)
 
     # --------------------------------------------------------------------------
