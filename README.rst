@@ -16,12 +16,12 @@ M4 Express micro-controller board and a BME280 and DS18B20 sensor.
 - Github: https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger
 
 Instructions
-------------
-Download the latest release of `BME280 & DS18B20 logger <>`_
+============
+Download the latest release of `BME280 & DS18B20 logger <https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger/releases/latest/>`_
 and unpack to a folder onto your drive.
 
-Flashing the firmware onto the Feather`
-----------------------------------------
+Flashing the firmware
+=====================
 
 Double click the reset button of the Feather while plugged into your PC. This
 will mount a drive called `FEATHERBOOT`. Copy
@@ -29,24 +29,24 @@ will mount a drive called `FEATHERBOOT`. Copy
 onto the Featherboot drive. It will restart automatically with the new
 firmware.
 
-Installation of Python software
--------------------------------
+Running in Python
+===============================
 
 Preferred distributions:
     * `Anaconda <https://www.anaconda.com/>`_
     * `Miniconda <https://docs.conda.io/en/latest/miniconda.html/>`_
 
-Open `Anaconda Prompt` and navigate to the unpacked folder.::
+Open `Anaconda Prompt` and navigate to the unpacked folder. Run the following to install the necessary packages ::
 
     cd src_python
     pip install -r requirements.txt
     
-Now you can run the application by::
+Now you can run the application ::
 
     python main.py
 
 LED status lights
------------------
+=================
 
     * Solid blue: Booting and setting up
     * Solid green: Ready for communication
