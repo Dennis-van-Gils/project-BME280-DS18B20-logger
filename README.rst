@@ -11,7 +11,8 @@ BME280 & DS18B20 logger
 *A Physics of Fluids project.*
 
 A temperature, humidity and pressure data logger build from an Adafruit Feather
-M4 Express micro-controller board and a BME280 and DS18B20 sensor.
+M4 Express micro-controller board and a BME280 and DS18B20 sensor with a
+graphical user interface in Python.
 
 - Github: https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger
 
