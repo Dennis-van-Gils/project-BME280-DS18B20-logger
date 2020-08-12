@@ -17,7 +17,7 @@ M4 Express micro-controller board and a BME280 and DS18B20 sensor.
 
 Instructions
 ============
-Download the latest release of `BME280 & DS18B20 logger <https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger/releases/latest/>`_
+Download the latest release of `BME280 & DS18B20 logger <https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger/releases/latest>`_
 and unpack to a folder onto your drive.
 
 Flashing the firmware
@@ -33,8 +33,8 @@ Running the application
 -----------------------
 
 Preferred Python distributions:
-    * `Anaconda <https://www.anaconda.com/>`_
-    * `Miniconda <https://docs.conda.io/en/latest/miniconda.html/>`_
+    * `Anaconda <https://www.anaconda.com>`_
+    * `Miniconda <https://docs.conda.io/en/latest/miniconda.html>`_
 
 Open `Anaconda Prompt` and navigate to the unpacked folder. Run the following to
 install the necessary packages: ::
