@@ -21,7 +21,7 @@ Download the latest release of `BME280 & DS18B20 logger <https://github.com/Denn
 and unpack to a folder onto your drive.
 
 Flashing the firmware
-=====================
+---------------------
 
 Double click the reset button of the Feather while plugged into your PC. This
 will mount a drive called `FEATHERBOOT`. Copy
@@ -29,25 +29,26 @@ will mount a drive called `FEATHERBOOT`. Copy
 onto the Featherboot drive. It will restart automatically with the new
 firmware.
 
-Running in Python
-===============================
+Running the application
+-----------------------
 
-Preferred distributions:
+Preferred Python distributions:
     * `Anaconda <https://www.anaconda.com/>`_
     * `Miniconda <https://docs.conda.io/en/latest/miniconda.html/>`_
 
-Open `Anaconda Prompt` and navigate to the unpacked folder. Run the following to install the necessary packages ::
+Open `Anaconda Prompt` and navigate to the unpacked folder. Run the following to
+install the necessary packages: ::
 
     cd src_python
     pip install -r requirements.txt
     
-Now you can run the application ::
+Now you can run the application: ::
 
     python main.py
 
 LED status lights
 =================
 
-    * Solid blue: Booting and setting up
-    * Solid green: Ready for communication
-    * Flashing green: Sensor data is being send over USB
+* Solid blue: Booting and setting up
+* Solid green: Ready for communication
+* Flashing green: Sensor data is being send over USB
