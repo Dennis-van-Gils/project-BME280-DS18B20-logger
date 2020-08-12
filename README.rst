@@ -10,12 +10,41 @@ BME280 & DS18B20 logger
 =======================
 *A Physics of Fluids project.*
 
-A temperature, humidity and pressure data logger consisting of an Arduino
-(Adafruit Feather M4 Express) with a BME280 and DS18B20 sensor.
+A temperature, humidity and pressure data logger build from an Adafruit Feather
+M4 Express micro-controller board and a BME280 and DS18B20 sensor.
 
 - Github: https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger
 
-Installation::
-    
+Flashing the firmware onto the Feather
+--------------------------------------
+
+Double click the reset button of the Feather while plugged into your PC. This
+will mount a drive called `FEATHERBOOT`. Copy
+`CURRENT.UF2 <https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger/blob/master/src_cpp/_build_Feather_M4/CURRENT.UF2>`_
+onto the Featherboot drive. It will restart automatically with the new
+firmware.
+
+Installation of Python software
+-------------------------------
+
+Preferred distributions:
+* `Anaconda <https://www.anaconda.com/>`_
+* `Miniconda <https://docs.conda.io/en/latest/miniconda.html/>`_
+
+Download the latest release of `BME280 & DS18B20 logger <>`_
+and unpack to a folder onto your drive. Open `Anaconda Prompt` and navigate to
+the folder.::
+
     cd src_python
     pip install -r requirements.txt
+    
+Now you can run the application by::
+
+    python main.py
+
+LED status lights
+-----------------
+
+Solid blue: Booting and setting up
+Solid green: Ready for communication
+Flashing green: Sensor data is being send over USB
