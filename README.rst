@@ -16,6 +16,8 @@ graphical user interface in Python.
 
 - Github: https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger
 
+.. image:: https://raw.githubusercontent.com/Dennis-van-Gils/project-BME280-DS18B20-logger/master/images/screenshot.png
+
 Instructions
 ============
 Download the latest release of `BME280 & DS18B20 logger <https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger/releases/latest>`_
