@@ -4,8 +4,8 @@
 """
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
-__url__ = "https://github.com/Dennis-van-Gils/....."
-__date__ = "05-08-2020"
+__url__ = "https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger"
+__date__ = "12-08-2020"
 __version__ = "1.0"
 # pylint: disable=bare-except, broad-except
 
@@ -22,38 +22,44 @@ from PyQt5.QtCore import QDateTime
 import pyqtgraph as pg
 
 from dvg_debug_functions import tprint, dprint, print_fancy_traceback as pft
-from dvg_pyqtgraph_threadsafe import HistoryChartCurve
 from dvg_pyqt_controls import (
     create_Toggle_button,
     SS_TEXTBOX_READ_ONLY,
     SS_GROUP,
 )
+from dvg_pyqt_filelogger import FileLogger
+from dvg_pyqtgraph_threadsafe import (
+    HistoryChartCurve,
+    LegendSelect,
+    PlotManager,
+)
 
 from dvg_devices.Arduino_protocol_serial import Arduino
 from dvg_qdeviceio import QDeviceIO
 
-from DvG_pyqt_FileLogger import FileLogger
 
-try:
-    import OpenGL.GL as gl  # pylint: disable=unused-import
-except:
-    print("OpenGL acceleration: Disabled")
-    print("To install: `conda install pyopengl` or `pip install pyopengl`")
-else:
-    print("OpenGL acceleration: Enabled")
-    pg.setConfigOptions(useOpenGL=True)
-    pg.setConfigOptions(antialias=True)
-    pg.setConfigOptions(enableExperimental=True)
+TRY_USING_OPENGL = True
+if TRY_USING_OPENGL:
+    try:
+        import OpenGL.GL as gl  # pylint: disable=unused-import
+    except:
+        print("OpenGL acceleration: Disabled")
+        print("To install: `conda install pyopengl` or `pip install pyopengl`")
+    else:
+        print("OpenGL acceleration: Enabled")
+        pg.setConfigOptions(useOpenGL=True)
+        pg.setConfigOptions(antialias=True)
+        pg.setConfigOptions(enableExperimental=True)
 
 # Global pyqtgraph configuration
-pg.setConfigOptions(leftButtonPan=False)
+# pg.setConfigOptions(leftButtonPan=False)
 pg.setConfigOption("foreground", "#EEE")
 
 # Constants
 # fmt: off
 DAQ_INTERVAL_MS    = 1000  # [ms]
 CHART_INTERVAL_MS  = 500   # [ms]
-CHART_HISTORY_TIME = 600    # [s]
+CHART_HISTORY_TIME = 3600  # [s]
 # fmt: on
 
 # Show debug info in terminal? Warning: Slow! Do not leave on unintentionally.
@@ -127,7 +133,9 @@ class MainWindow(QtWid.QWidget):
         self.qpbt_record = create_Toggle_button(
             "Click to start recording to file"
         )
-        self.qpbt_record.clicked.connect(self.process_qpbt_record)
+        # fmt: off
+        self.qpbt_record.clicked.connect(lambda state: log.record(state)) # pylint: disable=unnecessary-lambda
+        # fmt: on
 
         vbox_middle = QtWid.QVBoxLayout()
         vbox_middle.addWidget(self.qlbl_title)
@@ -138,10 +146,12 @@ class MainWindow(QtWid.QWidget):
         self.qpbt_exit = QtWid.QPushButton("Exit")
         self.qpbt_exit.clicked.connect(self.close)
         self.qpbt_exit.setMinimumHeight(30)
+        self.qlbl_recording_time = QtWid.QLabel(alignment=QtCore.Qt.AlignRight)
 
         vbox_right = QtWid.QVBoxLayout()
         vbox_right.addWidget(self.qpbt_exit, stretch=0)
         vbox_right.addStretch(1)
+        vbox_right.addWidget(self.qlbl_recording_time, stretch=0)
 
         # Round up top frame
         hbox_top = QtWid.QHBoxLayout()
@@ -155,7 +165,9 @@ class MainWindow(QtWid.QWidget):
         #   Bottom frame
         # -------------------------
 
-        # Chart
+        #  Charts
+        # -------------------------
+
         self.gw = pg.GraphicsLayoutWidget()
 
         # Plot: Temperatures
@@ -173,6 +185,7 @@ class MainWindow(QtWid.QWidget):
 
         self.plots = [self.pi_temp, self.pi_humi, self.pi_pres]
         for plot in self.plots:
+            plot.setClipToView(True)
             plot.showGrid(x=1, y=1)
             plot.setLabel("bottom", text="history (s)", **p)
             plot.setMenuEnabled(True)
@@ -187,16 +200,20 @@ class MainWindow(QtWid.QWidget):
         PEN_02 = pg.mkPen(color=[0, 255, 255], width=3)
 
         self.tscurve_ds_temp = HistoryChartCurve(
-            capacity=capacity, linked_curve=self.pi_temp.plot(pen=PEN_01),
+            capacity=capacity,
+            linked_curve=self.pi_temp.plot(pen=PEN_01, name="temp_DS"),
         )
         self.tscurve_bme_temp = HistoryChartCurve(
-            capacity=capacity, linked_curve=self.pi_temp.plot(pen=PEN_02),
+            capacity=capacity,
+            linked_curve=self.pi_temp.plot(pen=PEN_02, name="temp_BME"),
         )
         self.tscurve_bme_humi = HistoryChartCurve(
-            capacity=capacity, linked_curve=self.pi_humi.plot(pen=PEN_02),
+            capacity=capacity,
+            linked_curve=self.pi_humi.plot(pen=PEN_02, name="humi_BME"),
         )
         self.tscurve_bme_pres = HistoryChartCurve(
-            capacity=capacity, linked_curve=self.pi_pres.plot(pen=PEN_02),
+            capacity=capacity,
+            linked_curve=self.pi_pres.plot(pen=PEN_02, name="pres_BME"),
         )
 
         self.tscurves = [
@@ -206,51 +223,99 @@ class MainWindow(QtWid.QWidget):
             self.tscurve_bme_pres,
         ]
 
-        # 'Readings'
+        #  Group `Readings`
+        # -------------------------
+
+        legend = LegendSelect(
+            linked_curves=self.tscurves, hide_toggle_button=True
+        )
+
         p = {
             "readOnly": True,
             "alignment": QtCore.Qt.AlignRight,
             "maximumWidth": 54,
         }
-        self.qlin_reading_ds_temp = QtWid.QLineEdit(**p)
-        self.qlin_reading_bme_temp = QtWid.QLineEdit(**p)
-        self.qlin_reading_bme_humi = QtWid.QLineEdit(**p)
-        self.qlin_reading_bme_pres = QtWid.QLineEdit(**p)
+        self.qlin_ds_temp = QtWid.QLineEdit(**p)
+        self.qlin_bme_temp = QtWid.QLineEdit(**p)
+        self.qlin_bme_humi = QtWid.QLineEdit(**p)
+        self.qlin_bme_pres = QtWid.QLineEdit(**p)
 
         # fmt: off
-        grid = QtWid.QGridLayout()
-        grid.addWidget(QtWid.QLabel("DS temp.")  , 0, 0)
-        grid.addWidget(self.qlin_reading_ds_temp , 0, 1)
-        grid.addWidget(QtWid.QLabel("± 0.5 °C")  , 0, 2)
-        grid.addWidget(QtWid.QLabel("BME temp.") , 1, 0)
-        grid.addWidget(self.qlin_reading_bme_temp, 1, 1)
-        grid.addWidget(QtWid.QLabel("± 0.5 °C")  , 1, 2)
-        grid.addWidget(QtWid.QLabel("BME humi.") , 2, 0)
-        grid.addWidget(self.qlin_reading_bme_humi, 2, 1)
-        grid.addWidget(QtWid.QLabel("± 3 %")     , 2, 2)
-        grid.addWidget(QtWid.QLabel("BME pres.") , 3, 0)
-        grid.addWidget(self.qlin_reading_bme_pres, 3, 1)
-        grid.addWidget(QtWid.QLabel("± 1 mbar")  , 3, 2)
-        grid.setAlignment(QtCore.Qt.AlignTop)
+        legend.grid.setHorizontalSpacing(6)
+        legend.grid.addWidget(self.qlin_ds_temp       , 0, 2)
+        legend.grid.addWidget(QtWid.QLabel("± 0.5 °C"), 0, 3)
+        legend.grid.addWidget(self.qlin_bme_temp      , 1, 2)
+        legend.grid.addWidget(QtWid.QLabel("± 0.5 °C"), 1, 3)
+        legend.grid.addWidget(self.qlin_bme_humi      , 2, 2)
+        legend.grid.addWidget(QtWid.QLabel("± 3 %")   , 2, 3)
+        legend.grid.addWidget(self.qlin_bme_pres      , 3, 2)
+        legend.grid.addWidget(QtWid.QLabel("± 1 mbar"), 3, 3)
         # fmt: on
 
         qgrp_readings = QtWid.QGroupBox("Readings")
-        qgrp_readings.setLayout(grid)
+        qgrp_readings.setLayout(legend.grid)
 
-        # 'Chart'
-        self.qpbt_clear_chart = QtWid.QPushButton("Clear")
-        self.qpbt_clear_chart.clicked.connect(self.process_qpbt_clear_chart)
+        #  Group 'Log comments'
+        # -------------------------
 
+        self.qtxt_comments = QtWid.QTextEdit()
         grid = QtWid.QGridLayout()
-        grid.addWidget(self.qpbt_clear_chart, 0, 0)
-        grid.setAlignment(QtCore.Qt.AlignTop)
+        grid.addWidget(self.qtxt_comments, 0, 0)
 
-        qgrp_chart = QtWid.QGroupBox("Chart")
-        qgrp_chart.setLayout(grid)
+        qgrp_comments = QtWid.QGroupBox("Log comments")
+        qgrp_comments.setLayout(grid)
+
+        #  Group 'Charts'
+        # -------------------------
+
+        self.plot_manager = PlotManager(parent=self)
+        self.plot_manager.add_autorange_buttons(linked_plots=self.plots)
+        self.plot_manager.add_preset_buttons(
+            linked_plots=self.plots,
+            linked_curves=self.tscurves,
+            presets=[
+                {
+                    "button_label": "00:30",
+                    "x_axis_label": "history (sec)",
+                    "x_axis_divisor": 1,
+                    "x_axis_range": (-30, 0),
+                },
+                {
+                    "button_label": "01:00",
+                    "x_axis_label": "history (sec)",
+                    "x_axis_divisor": 1,
+                    "x_axis_range": (-60, 0),
+                },
+                {
+                    "button_label": "10:00",
+                    "x_axis_label": "history (min)",
+                    "x_axis_divisor": 60,
+                    "x_axis_range": (-10, 0),
+                },
+                {
+                    "button_label": "30:00",
+                    "x_axis_label": "history (min)",
+                    "x_axis_divisor": 60,
+                    "x_axis_range": (-30, 0),
+                },
+                {
+                    "button_label": "60:00",
+                    "x_axis_label": "history (min)",
+                    "x_axis_divisor": 60,
+                    "x_axis_range": (-60, 0),
+                },
+            ],
+        )
+        self.plot_manager.add_clear_button(linked_curves=self.tscurves)
+        self.plot_manager.perform_preset(1)
+
+        qgrp_chart = QtWid.QGroupBox("Charts")
+        qgrp_chart.setLayout(self.plot_manager.grid)
 
         vbox = QtWid.QVBoxLayout()
         vbox.addWidget(qgrp_readings)
-        vbox.addWidget(qgrp_chart)
+        vbox.addWidget(qgrp_comments)
+        vbox.addWidget(qgrp_chart, alignment=QtCore.Qt.AlignLeft)
         vbox.addStretch()
 
         # Round up bottom frame
@@ -272,32 +337,6 @@ class MainWindow(QtWid.QWidget):
     # --------------------------------------------------------------------------
 
     @QtCore.pyqtSlot()
-    def process_qpbt_clear_chart(self):
-        str_msg = "Are you sure you want to clear the chart?"
-        reply = QtWid.QMessageBox.warning(
-            window,
-            "Clear chart",
-            str_msg,
-            QtWid.QMessageBox.Yes | QtWid.QMessageBox.No,
-            QtWid.QMessageBox.No,
-        )
-
-        if reply == QtWid.QMessageBox.Yes:
-            for tscurve in self.tscurves:
-                tscurve.clear()
-
-    @QtCore.pyqtSlot()
-    def process_qpbt_record(self):
-        if self.qpbt_record.isChecked():
-            file_logger.starting = True
-        else:
-            file_logger.stopping = True
-
-    @QtCore.pyqtSlot(str)
-    def set_text_qpbt_record(self, text_str):
-        self.qpbt_record.setText(text_str)
-
-    @QtCore.pyqtSlot()
     def update_GUI(self):
         str_cur_date, str_cur_time, _ = get_current_date_time()
         self.qlbl_cur_date_time.setText(
@@ -307,11 +346,13 @@ class MainWindow(QtWid.QWidget):
         self.qlbl_DAQ_rate.setText(
             "DAQ: %.1f Hz" % qdev_ard.obtained_DAQ_rate_Hz
         )
+        if log.is_recording():
+            self.qlbl_recording_time.setText(log.pretty_elapsed())
 
-        self.qlin_reading_ds_temp.setText("%.1f" % state.ds_temp)
-        self.qlin_reading_bme_temp.setText("%.1f" % state.bme_temp)
-        self.qlin_reading_bme_humi.setText("%.1f" % state.bme_humi)
-        self.qlin_reading_bme_pres.setText("%.1f" % state.bme_pres)
+        self.qlin_ds_temp.setText("%.1f" % state.ds_temp)
+        self.qlin_bme_temp.setText("%.1f" % state.bme_temp)
+        self.qlin_bme_humi.setText("%.1f" % state.bme_humi)
+        self.qlin_bme_pres.setText("%.1f" % state.bme_pres)
 
     @QtCore.pyqtSlot()
     def update_chart(self):
@@ -330,10 +371,11 @@ class MainWindow(QtWid.QWidget):
 def stop_running():
     app.processEvents()
     qdev_ard.quit()
-    file_logger.close_log()
+    log.close()
 
-    print("Stopping timers: ", end="")
-    timer_chart.stop()
+    print("Stopping timers................ ", end="")
+    timer_GUI.stop()
+    timer_charts.stop()
     print("done.")
 
 
@@ -341,7 +383,7 @@ def stop_running():
 def notify_connection_lost():
     stop_running()
 
-    window.qlbl_title.setText("    ! ! !    LOST CONNECTION    ! ! !    ")
+    window.qlbl_title.setText("! ! !    LOST CONNECTION    ! ! !")
     str_cur_date, str_cur_time, _ = get_current_date_time()
     str_msg = "%s %s\nLost connection to Arduino." % (
         str_cur_date,
@@ -390,7 +432,7 @@ def DAQ_function():
             state.bme_humi,
             state.bme_pres,
         ) = tmp_state
-        state.time /= 1000
+        state.time /= 1000  # Arduino time, [msec] to [s]
         state.bme_pres /= 100  # [Pa] to [mbar]
     except Exception as err:
         pft(err, 3)
@@ -400,10 +442,8 @@ def DAQ_function():
         )
         return False
 
-    # Use Arduino time or PC time?
-    use_PC_time = True
-    if use_PC_time:
-        state.time = time.perf_counter()
+    # We will use PC time instead
+    state.time = time.perf_counter()
 
     # Add readings to chart histories
     window.tscurve_ds_temp.appendData(state.time, state.ds_temp)
@@ -412,40 +452,31 @@ def DAQ_function():
     window.tscurve_bme_pres.appendData(state.time, state.bme_pres)
 
     # Logging to file
-    if file_logger.starting:
-        fn_log = str_cur_datetime + ".txt"
-        if file_logger.create_log(state.time, fn_log, mode="w"):
-            file_logger.signal_set_recording_text.emit(
-                "Recording to file: " + fn_log
-            )
-            file_logger.write(
-                "time [s]\t"
-                "DS18B20 temp ('C)\t"
-                "BME280 temp ('C)\t"
-                "BME280 humi (pct)\t"
-                "BME280 pres (mbar)\n"
-            )
+    log.update(filepath=str_cur_datetime + ".txt", mode="w")
 
-    if file_logger.stopping:
-        file_logger.signal_set_recording_text.emit(
-            "Click to start recording to file"
-        )
-        file_logger.close_log()
-
-    if file_logger.is_recording:
-        log_elapsed_time = state.time - file_logger.start_time
-        file_logger.write(
-            "%.1f\t%.1f\t%.1f\t%.1f\t%.1f\n"
-            % (
-                log_elapsed_time,
-                state.ds_temp,
-                state.bme_temp,
-                state.bme_humi,
-                state.bme_pres,
-            )
-        )
-
+    # Return success
     return True
+
+
+def write_header_to_log():
+    log.write("[HEADER]\n")
+    log.write(window.qtxt_comments.toPlainText())
+    log.write("\n\n[DATA]\n")
+    log.write("time\ttemp_DS\ttemp_BME\thumi_BME\tpres_BME\n")
+    log.write("[s]\t[±0.5 °C]\t[±0.5 °C]\t[±3 pct]\t[±1 mbar]\n")
+
+
+def write_data_to_log():
+    log.write(
+        "%.1f\t%.1f\t%.1f\t%.1f\t%.1f\n"
+        % (
+            log.elapsed(),
+            state.ds_temp,
+            state.bme_temp,
+            state.bme_humi,
+            state.bme_pres,
+        )
+    )
 
 
 # ------------------------------------------------------------------------------
@@ -469,9 +500,8 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------------
 
     ard = Arduino(name="Ard", connect_to_specific_ID="BME280 & DS18B20 logger")
-
     ard.serial_settings["baudrate"] = 115200
-    ard.auto_connect("last_used_port.txt")
+    ard.auto_connect()
 
     if not (ard.is_alive):
         print("\nCheck connection and try resetting the Arduino.")
@@ -492,8 +522,18 @@ if __name__ == "__main__":
     #   File logger
     # --------------------------------------------------------------------------
 
-    file_logger = FileLogger()
-    file_logger.signal_set_recording_text.connect(window.set_text_qpbt_record)
+    log = FileLogger(
+        write_header_function=write_header_to_log,
+        write_data_function=write_data_to_log,
+    )
+    log.signal_recording_started.connect(
+        lambda filepath: window.qpbt_record.setText(
+            "Recording to file: %s" % filepath
+        )
+    )
+    log.signal_recording_stopped.connect(
+        lambda: window.qpbt_record.setText("Click to start recording to file")
+    )
 
     # --------------------------------------------------------------------------
     #   Set up multithreaded communication with the Arduino
@@ -520,13 +560,16 @@ if __name__ == "__main__":
     qdev_ard.start(DAQ_priority=QtCore.QThread.TimeCriticalPriority)
 
     # --------------------------------------------------------------------------
-    #   Create chart refresh timer
+    #   Timers
     # --------------------------------------------------------------------------
 
-    timer_chart = QtCore.QTimer()
-    # timer_chart.setTimerType(QtCore.Qt.PreciseTimer)
-    timer_chart.timeout.connect(window.update_chart)
-    timer_chart.start(CHART_INTERVAL_MS)
+    timer_GUI = QtCore.QTimer()
+    timer_GUI.timeout.connect(window.update_GUI)
+    timer_GUI.start(100)
+
+    timer_charts = QtCore.QTimer()
+    timer_charts.timeout.connect(window.update_chart)
+    timer_charts.start(CHART_INTERVAL_MS)
 
     # --------------------------------------------------------------------------
     #   Start the main GUI event loop

@@ -15,7 +15,7 @@
   Every read out, the LED will flash brightly in green
 
   Dennis van Gils
-  29-07-2020
+  12-08-2020
 *******************************************************************************/
 
 #include <Arduino.h>
@@ -42,6 +42,13 @@ OneWire oneWire(PIN_DS18B20);
 DallasTemperature ds18(&oneWire);
 BME280I2C bme;
 
+float ds18_temp(NAN);     // ['C]
+float bme280_temp(NAN);   // ['C]
+float bme280_humi(NAN);   // [%]
+float bme280_pres(NAN);   // [Pa]
+
+BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
+BME280::PresUnit presUnit(BME280::PresUnit_Pa);
 
 // -----------------------------------------------------------------------------
 //    setup
@@ -62,6 +69,9 @@ void setup() {
         delay(1000);
     }
 
+    // Ditch the first reading. The first humidity reading tends to be off.
+    bme.read(bme280_pres, bme280_temp, bme280_humi, tempUnit, presUnit);
+
     neo.setPixelColor(0, neo.Color(0, NEO_DIM, 0)); // Green: All set up
     neo.show();
 }
@@ -69,14 +79,6 @@ void setup() {
 // -----------------------------------------------------------------------------
 //    loop
 // -----------------------------------------------------------------------------
-
-float ds18_temp(NAN);     // ['C]
-float bme280_temp(NAN);   // ['C]
-float bme280_humi(NAN);   // [%]
-float bme280_pres(NAN);   // [Pa]
-
-BME280::TempUnit tempUnit(BME280::TempUnit_Celsius);
-BME280::PresUnit presUnit(BME280::PresUnit_Pa);
 
 void loop() {
     char *strCmd; // Incoming serial command string
