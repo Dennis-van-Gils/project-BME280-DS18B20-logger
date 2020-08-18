@@ -28,7 +28,7 @@ Flashing the firmware
 
 Double click the reset button of the Feather while plugged into your PC. This
 will mount a drive called `FEATHERBOOT`. Copy
-`src_cpp/_build_Feather_M4/CURRENT.UF2 <https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger/raw/master/src_cpp/_build_Feather_M4/CURRENT.UF2>`_
+`src_mcu/_build_Feather_M4/CURRENT.UF2 <https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger/raw/master/src_mcu/_build_Feather_M4/CURRENT.UF2>`_
 onto the Featherboot drive. It will restart automatically with the new
 firmware.
 
