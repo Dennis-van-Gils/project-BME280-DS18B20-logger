@@ -20,7 +20,7 @@ graphical user interface in Python.
 
 Instructions
 ============
-Download the latest release of `BME280 & DS18B20 logger <https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger/releases/latest>`_
+Download the `latest release <https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger/releases/latest>`_
 and unpack to a folder onto your drive.
 
 Flashing the firmware
