@@ -5,8 +5,8 @@
 __author__ = "Dennis van Gils"
 __authoremail__ = "vangils.dennis@gmail.com"
 __url__ = "https://github.com/Dennis-van-Gils/project-BME280-DS18B20-logger"
-__date__ = "12-08-2020"
-__version__ = "1.0"
+__date__ = "02-03-2021"
+__version__ = "1.0.2"
 # pylint: disable=bare-except, broad-except
 
 import os
@@ -441,6 +441,10 @@ def DAQ_function():
             % (ard.name, str_cur_date, str_cur_time)
         )
         return False
+
+    # Catch very intermittent DS18B20 sensor errors
+    if state.ds_temp <= -127.0:
+        state.ds_temp = np.nan
 
     # We will use PC time instead
     state.time = time.perf_counter()
